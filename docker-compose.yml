@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # Servicio de la base de datos PostgreSQL
+  db:
+    image: postgres:17
+    container_name: postgres-container
+    environment:
+      POSTGRES_DB: laravel_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - laravel_network
+
+  # Servicio de Laravel
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile  # Asegúrate de que apunte a tu Dockerfile
+    container_name: laravel-app
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "8000:8000"
+    networks:
+      - laravel_network
+    depends_on:
+      - db
+
+  # Servicio Nginx (opcional, si lo quieres usar para servir Laravel)
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-container
+    volumes:
+      - .:/var/www/html
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "8080:80"
+    networks:
+      - laravel_network
+    depends_on:
+      - app
+
+networks:
+  laravel_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
