@@ -1,0 +1,110 @@
+services:
+
+  # -------------------------
+  # Backend Laravel
+  # -------------------------
+  backend-plantilla:
+    build:
+      context: ./laravel
+      dockerfile: Dockerfile
+    container_name: backend-plantilla-dev
+    restart: unless-stopped
+    volumes:
+      - ./laravel:/var/www/html
+      - vendor_plantilla:/var/www/html/vendor
+      - ./docker/php/custom.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+    ports:
+      - "8000:8000"
+    networks:
+      - plantilla_network
+      - postgres_network
+      - mongodb_network
+      - mailpit_network
+
+  # -------------------------
+  # WebSockets Laravel Reverb
+  # -------------------------
+  reverb-plantilla:
+    image: backend-plantilla-dev
+    container_name: reverb-plantilla-dev
+    restart: unless-stopped
+    command: php artisan reverb:start --host=0.0.0.0 --port=8081 --debug
+    stop_grace_period: 20s
+    volumes:
+      - ./laravel:/var/www/html
+      - vendor_plantilla:/var/www/html/vendor
+    ports:
+      - "8081:8081"
+    depends_on:
+      - backend-plantilla
+    networks:
+      - plantilla_network
+      - postgres_network
+      - mongodb_network
+
+  # -------------------------
+  # Frontend React + Vite
+  # -------------------------
+  frontend-plantilla:
+    build:
+      context: ./administrador-react
+      dockerfile: Dockerfile
+    container_name: frontend-plantilla-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./administrador-react:/app
+      - node_modules_plantilla:/app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    stdin_open: true
+    tty: true
+    depends_on:
+      - backend-plantilla
+    networks:
+      - plantilla_network
+
+  # -------------------------
+  # Nginx Reverse Proxy
+  # -------------------------
+  nginx-plantilla:
+    image: nginx:alpine
+    container_name: nginx-plantilla
+    restart: unless-stopped
+    volumes:
+      - ./laravel:/var/www/html
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend-plantilla
+      - frontend-plantilla
+    networks:
+      - plantilla_network
+
+
+# -------------------------
+# Redes
+# -------------------------
+networks:
+  plantilla_network:
+    driver: bridge
+
+  postgres_network:
+    external: true
+
+  mongodb_network:
+    external: true
+
+  mailpit_network:
+    external: true
+
+
+# -------------------------
+# Volúmenes
+# -------------------------
+volumes:
+  vendor_plantilla:
+  node_modules_plantilla:
